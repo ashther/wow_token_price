@@ -1,0 +1,12 @@
+---
+title: "wow token price"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+updated on `r Sys.time()`
+
+![](wow_token_price.png)
