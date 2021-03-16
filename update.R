@@ -17,8 +17,8 @@ last_nth <- function(df, col, n) {
   ifelse(purrr::is_empty(res), NA_integer_, res)
 }
 
-param_best <- readRDS('config/param_best.rds')
-work_flow <- readRDS('config/work_flow.rds')
+# param_best <- readRDS('config/param_best.rds')
+# work_flow <- readRDS('config/work_flow.rds')
 
 
 # data -------------------------------------------------------------------
@@ -27,30 +27,77 @@ work_flow <- readRDS('config/work_flow.rds')
 con <- dbConnect(SQLite(), 'db/wow_token_price.sqlite')
 data_raw <- dbReadTable(con, 'wow_token_price') %>% 
   as_tibble() %>% 
-  mutate(time = as.POSIXct(time, tz = 'Asia/Shanghai'))
+  mutate(time = as.POSIXct(time, tz = 'Asia/Shanghai')) %>% 
+  select(-timestamp)
 dbDisconnect(con)
 
 for (i in seq_len(18)) {
   data_raw[[sprintf('lag_%s', i)]] <- lag(data_raw$price, n = i)
 }
-
+data_raw <- drop_na(data_raw)
 
 # train ------------------------------------------------------------------
+
+data_train <- filter(data_raw, time >= Sys.Date() - 30 & time < max(time) - 6 * 3600)
+folds <- vfold_cv(data_train, strata = 'price')
+
+rec <- recipe(price ~ ., data = data_train) %>% 
+  step_timeseries_signature(time) %>% 
+  step_rm(time) %>% 
+  step_rm(
+    contains('iso'), contains('second'), contains('minute'), contains('xts')
+  ) %>% 
+  step_dummy(all_nominal(), -all_outcomes()) %>% 
+  step_nzv(all_predictors()) %>% 
+  step_corr(all_predictors()) %>% 
+  step_lincomb(all_predictors()) %>% 
+  step_normalize(all_numeric(), -all_outcomes())
+
+data_prep <- prep(rec) %>% juice()
+
+model <- rand_forest(mtry = tune(), trees = 500, min_n = tune()) %>% 
+  set_mode('regression') %>% 
+  set_engine('ranger', importance = 'impurity', keep.inbag = TRUE)
+
+work_flow <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(model)
+
+res <- work_flow %>% 
+  tune_grid(
+    resamples = folds, 
+    grid = grid_regular(finalize(mtry(), data_prep), min_n(), levels = 5), 
+    control = control_grid(verbose = TRUE, save_pred = TRUE)
+    # metric = metric_set(rmse)
+  )
+
+p1 <- collect_predictions(res) %>% 
+  ggplot(aes(price, .pred)) + 
+  geom_point(alpha = 0.01, color = 'purple') + 
+  geom_abline(slope = 1, color = 'white') + 
+  coord_equal() + 
+  awtools::a_dark_theme()
+
+param_best <- select_best(res)
+
 
 # train new model with data before 6 hours ago
 model_fit <- work_flow %>% 
   finalize_workflow(param_best) %>% 
-  fit(filter(data_raw, time >= Sys.Date() - 30 & time < max(time) - 6 * 3600))
+  fit(data_train)
 
 
 
 # predict ----------------------------------------------------------------
 
 # predict last 6 hours for comparing, and next 6 hours for explore
-p <- filter(data_raw, time >= Sys.Date() - 2) %>% {
+p2 <- filter(data_raw, time >= Sys.Date() - 2) %>% {
 
+  real <- filter(., time >= max(time) - 6 * 3600) %>% 
+    mutate(type = 'obs') %>% 
+    select(time, price, type)
   temp <- filter(., time < max(time) - 6 * 3600) %>%
-    mutate(type = 'obs')
+    mutate(type = 'history')
   steps <- nrow(.) - nrow(temp) + 6 * 3
   
   for (i in seq_len(steps)) {
@@ -67,12 +114,16 @@ p <- filter(data_raw, time >= Sys.Date() - 2) %>% {
     temp <- bind_rows(temp, mutate(to_predict, type = 'pred'))
   }
   
-  transmute(., time, price, type = 'obs') %>% 
-    bind_rows(select(temp, time, price, type))
+  bind_rows(real, select(temp, time, price, type))
+  
 } %>% 
   ggplot(aes(time, price)) + 
   geom_line(aes(color = type), size = 1.3) + 
   scale_y_continuous(labels = scales::comma) + 
-  ggdark::dark_theme_minimal()
+  awtools::a_dark_theme()
 
-ggsave('wow_token_price.png', p)
+library(patchwork)
+
+p <- p1 + p2 + plot_layout(widths = c(1, 2))
+
+ggsave('wow_token_price.png', p, width = 10, height = 6.18)
