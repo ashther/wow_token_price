@@ -71,10 +71,19 @@ res <- work_flow %>%
     # metric = metric_set(rmse)
   )
 
+annotation <- collect_predictions(res) %>% 
+  mae(price, .pred) %>% 
+  pull(.estimate) %>% 
+  round(0)
+
 p1 <- collect_predictions(res) %>% 
+  sample_frac(0.1) %>% 
+  mutate(err = abs(price - .pred)) %>% 
   ggplot(aes(price, .pred)) + 
-  geom_point(alpha = 0.01, color = 'purple') + 
-  geom_abline(slope = 1, color = 'white') + 
+  geom_point(alpha = 0.1, color = 'purple') + 
+  geom_abline(slope = 1, color = 'grey', lty = 2) + 
+  geom_text(label = annotation, x = -Inf, y = Inf, 
+            hjust = -1, vjust = 1, color = 'white') + 
   coord_equal() + 
   awtools::a_dark_theme()
 
