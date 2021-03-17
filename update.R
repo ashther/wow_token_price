@@ -77,7 +77,6 @@ annotation <- collect_predictions(res) %>%
   round(0)
 
 p1 <- collect_predictions(res) %>% 
-  sample_frac(0.1) %>% 
   mutate(err = abs(price - .pred)) %>% 
   ggplot(aes(price, .pred)) + 
   geom_point(alpha = 0.1, color = 'purple') + 
