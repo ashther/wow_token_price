@@ -61,6 +61,9 @@ model_svm <- svm_rbf() %>%
   set_mode('regression') %>% 
   set_engine('kernlab')
 
+model_boost <- boost_tree(trees = 1000) %>% 
+  set_mode('regression') %>% 
+  set_engine('lightgbm', objective = "reg:squarederror")
 
 # workflow ---------------------------------------------------------------
 
@@ -79,6 +82,10 @@ wf_tree <- workflow() %>%
 wf_svm <- workflow() %>% 
   add_recipe(rec) %>% 
   add_model(model_svm)
+
+wf_boost <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(model_boost)
 
 # compare ----------------------------------------------------------------
 
@@ -111,6 +118,13 @@ res_svm <- wf_svm %>%
     control = control_resamples(save_pred = TRUE, verbose = TRUE)
   )
 show_best(res_svm)
+
+res_boost <- wf_boost %>% 
+  fit_resamples(
+    resamples = folds, 
+    control = control_resamples(save_pred = TRUE, verbose = TRUE)
+  )
+show_best(res_boost)
 
 # tune -------------------------------------------------------------------
 

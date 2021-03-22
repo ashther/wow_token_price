@@ -47,6 +47,7 @@ rec <- recipe(price ~ ., data = data_train) %>%
   step_rm(
     contains('iso'), contains('second'), contains('minute'), contains('xts')
   ) %>% 
+  step_interact(~ time_wday.lbl * time_hour) %>% 
   step_dummy(all_nominal(), -all_outcomes()) %>% 
   step_nzv(all_predictors()) %>% 
   step_corr(all_predictors()) %>% 
@@ -79,7 +80,7 @@ annotation <- collect_predictions(res) %>%
 p1 <- collect_predictions(res) %>% 
   mutate(err = abs(price - .pred)) %>% 
   ggplot(aes(price, .pred)) + 
-  geom_point(alpha = 0.1, color = 'purple') + 
+  geom_point(alpha = 0.05, color = 'purple') + 
   geom_abline(slope = 1, color = 'grey', lty = 2) + 
   geom_text(label = annotation, x = -Inf, y = Inf, 
             hjust = -1, vjust = 1, color = 'white') + 
