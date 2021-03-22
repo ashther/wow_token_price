@@ -53,6 +53,14 @@ model_rf <- rand_forest() %>%
   set_mode('regression') %>% 
   set_engine('ranger')
 
+model_tree <- decision_tree() %>% 
+  set_mode('regression') %>% 
+  set_engine('rpart')
+
+model_svm <- svm_rbf() %>% 
+  set_mode('regression') %>% 
+  set_engine('kernlab')
+
 
 # workflow ---------------------------------------------------------------
 
@@ -64,6 +72,13 @@ wf_rf <- workflow() %>%
   add_recipe(rec) %>% 
   add_model(model_rf)
 
+wf_tree <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(model_tree)
+
+wf_svm <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(model_svm)
 
 # compare ----------------------------------------------------------------
 
@@ -83,6 +98,19 @@ res_rf <- wf_rf %>%
   )
 show_best(res_rf)
 
+res_tree <- wf_tree %>% 
+  fit_resamples(
+    resamples = folds, 
+    control = control_resamples(save_pred = TRUE, verbose = TRUE)
+  )
+show_best(res_tree)
+
+res_svm <- wf_svm %>% 
+  fit_resamples(
+    resamples = folds, 
+    control = control_resamples(save_pred = TRUE, verbose = TRUE)
+  )
+show_best(res_svm)
 
 # tune -------------------------------------------------------------------
 
