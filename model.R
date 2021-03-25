@@ -36,8 +36,8 @@ rec <- recipe(price ~ ., data = data_train) %>%
     contains('iso'), contains('second'), contains('xts')
   ) %>% 
   # step_normalize(time_index.num) %>% 
-  # step_interact(~ time_wday.lbl * time_hour) %>% 
-  step_interact(~ time_hour * time_minute) %>% 
+  step_interact(~ time_wday.lbl * time_hour) %>%
+  # step_interact(~ time_hour * time_minute) %>% 
   step_dummy(all_nominal(), -all_outcomes()) %>% 
   step_nzv(all_predictors()) %>% 
   step_corr(all_predictors()) %>% 
