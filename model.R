@@ -33,8 +33,11 @@ rec <- recipe(price ~ ., data = data_train) %>%
   step_timeseries_signature(time) %>% 
   step_rm(time) %>% 
   step_rm(
-    contains('iso'), contains('second'), contains('minute'), contains('xts')
+    contains('iso'), contains('second'), contains('xts')
   ) %>% 
+  # step_normalize(time_index.num) %>% 
+  # step_interact(~ time_wday.lbl * time_hour) %>% 
+  step_interact(~ time_hour * time_minute) %>% 
   step_dummy(all_nominal(), -all_outcomes()) %>% 
   step_nzv(all_predictors()) %>% 
   step_corr(all_predictors()) %>% 
@@ -143,6 +146,21 @@ res <- work_flow %>%
     control = control_grid(verbose = TRUE, save_pred = TRUE)
     # metric = metric_set(rmse)
   )
+
+annotation <- collect_predictions(res) %>% 
+  mae(price, .pred) %>% 
+  pull(.estimate) %>% 
+  round(0)
+
+collect_predictions(res) %>% 
+  mutate(err = abs(price - .pred)) %>% 
+  ggplot(aes(price, .pred)) + 
+  geom_point(alpha = 0.05, color = 'purple') + 
+  geom_abline(slope = 1, color = 'grey', lty = 2) + 
+  geom_text(label = annotation, x = -Inf, y = Inf, 
+            hjust = -1, vjust = 1, color = 'white') + 
+  coord_equal() + 
+  awtools::a_dark_theme()
 
 param_best <- select_best(res)
 
