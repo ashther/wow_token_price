@@ -77,6 +77,10 @@ annotation <- collect_predictions(res) %>%
   pull(.estimate) %>% 
   round(0)
 
+stdev <- collect_predictions(res) %>% 
+  summarise(stdev = sd(price - .pred)) %>% 
+  pull(stdev)
+
 p1 <- collect_predictions(res) %>% 
   mutate(err = abs(price - .pred)) %>% 
   ggplot(aes(price, .pred)) + 
@@ -126,8 +130,22 @@ p2 <- filter(data_raw, time >= Sys.Date() - 2) %>% {
   bind_rows(real, select(temp, time, price, type))
   
 } %>% 
+  mutate(
+    lo_80 = price - 1.28*stdev, hi_80 = price + 1.28*stdev, 
+    lo_95 = price - 1.96*stdev, hi_95 = price + 1.96*stdev, 
+  ) %>% 
   ggplot(aes(time, price)) + 
   geom_line(aes(color = type), size = 1.3) + 
+  geom_ribbon(
+    aes(ymin = lo_80, ymax = hi_80), 
+    data = . %>% filter(type == 'pred'), 
+    fill = '#596DD5', alpha = 0.35
+  ) + 
+  geom_ribbon(
+    aes(ymin = lo_95, ymax = hi_95), 
+    data = . %>% filter(type == 'pred'), 
+    fill = '#596DD5', alpha = 0.1
+  ) + 
   scale_y_continuous(labels = scales::comma) + 
   awtools::a_dark_theme()
 
