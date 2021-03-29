@@ -31,7 +31,7 @@ data_raw <- dbReadTable(con, 'wow_token_price') %>%
   select(-timestamp)
 dbDisconnect(con)
 
-for (i in seq_len(18)) {
+for (i in seq_len(72)) {
   data_raw[[sprintf('lag_%s', i)]] <- lag(data_raw$price, n = i)
 }
 data_raw <- drop_na(data_raw)
@@ -114,7 +114,7 @@ p2 <- filter(data_raw, time >= Sys.Date() - 2) %>% {
       time = last(temp$time) + 1200, 
       price = NA_integer_
     )
-    for (k in 1:18) {
+    for (k in 1:72) {
       to_predict[[sprintf('lag_%s', k)]] <- last_nth(temp, 'price', k)
     }
     to_predict <- mutate(to_predict, across(contains('lag'), as.integer))
