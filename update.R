@@ -99,6 +99,15 @@ model_fit <- work_flow %>%
   finalize_workflow(param_best) %>% 
   fit(data_train)
 
+p3 <- pull_workflow_fit(model_fit) %>% 
+  vip::vi() %>% 
+  mutate(importance = Importance / max(Importance) * 100) %>% 
+  head(6) %>% 
+  ggplot(aes(reorder(Variable, importance), importance)) + 
+  geom_col(fill = '#785d37') + 
+  coord_flip() + 
+  awtools::a_dark_theme() +
+  labs(x = NULL)
 
 
 # predict ----------------------------------------------------------------
@@ -151,6 +160,6 @@ p2 <- filter(data_raw, time >= Sys.Date() - 2) %>% {
 
 library(patchwork)
 
-p <- p1 + p2 + plot_layout(widths = c(1, 2))
+p <- ((p1 / p3) | p2) + plot_layout(widths = c(1, 2))
 
 ggsave('wow_token_price.png', p, width = 10, height = 6.18)
