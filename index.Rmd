@@ -5,8 +5,39 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyr)
+
+font_color <- function(s) {
+  s_format <- format(s, big.mark = ',')
+  
+  if (s >= 0) 
+    paste("<font color='", 'green', "'>", s_format ,"</font>", sep="")
+  else 
+    paste("<font color='", 'red', "'>", s_format ,"</font>", sep="")
+}
+
+df <- readRDS('db/pred.rds') %>% 
+  select(time, type, price) %>% 
+  spread(type, price) %>% 
+  filter(!is.na(obs) & !is.na(pred))
+
+result <- df %>% 
+  mutate(
+    x = lead(pred), 
+    x = x - pred, 
+    is_buy = x >= 0, 
+    y = lead(obs), 
+    y = if_else(is_buy, y - obs, obs - y)
+  ) %>% 
+  summarise(x = sum(abs(x), na.rm = TRUE), y = sum(y, na.rm = TRUE))
 ```
 
 updated on `r Sys.time()`
+
+prediction revenue **`r font_color(result$x)`**
+
+actual revenue **`r font_color(result$y)`**
 
 ![](wow_token_price.png)
