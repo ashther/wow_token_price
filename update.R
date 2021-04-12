@@ -162,4 +162,5 @@ library(patchwork)
 
 p <- ((p1 / p3) | p2) + plot_layout(widths = c(1, 2))
 
+saveRDS(p2$data, 'db/pred.rds')
 ggsave('wow_token_price.png', p, width = 10, height = 6.18)
